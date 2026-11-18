@@ -1,0 +1,6 @@
+{
+  "name": "مختبر التحليل الثابت REA",
+  "description": "بيئة تحليل ثابت وإعادة بناء صادقة لحزم APK وXAPK وZIP وEXE عبر مشروع REA المحلي على Termux.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

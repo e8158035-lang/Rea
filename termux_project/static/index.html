@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>مختبر التحليل الثابت REA — Termux</title>
+  <style>
+    :root {
+      --bg: #0b111e;
+      --surface: #111827;
+      --surface-2: #1e293b;
+      --border: #283548;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --accent: #0284c7;
+      --accent-hover: #0369a1;
+      --ok: #16a34a;
+      --warn: #d97706;
+      --err: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    header {
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    header h1 { margin: 0; font-size: 18px; font-weight: 700; }
+    .notice {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: #fde68a;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 10px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn:hover { background: var(--accent-hover); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .dropzone {
+      border: 1px dashed #475569;
+      border-radius: 8px;
+      padding: 28px;
+      text-align: center;
+      background: var(--surface-2);
+    }
+    .progress-bar {
+      width: 100%;
+      height: 10px;
+      background: var(--surface-2);
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 12px 0;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      width: 0%;
+      transition: width 0.2s ease;
+    }
+    .logs {
+      background: #060a12;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      font-family: monospace;
+      font-size: 12px;
+      max-height: 220px;
+      overflow-y: auto;
+      direction: ltr;
+      text-align: left;
+    }
+    .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .tab-btn {
+      background: var(--surface-2);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 14px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .tab-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { border-bottom: 1px solid var(--border); padding: 8px 10px; text-align: right; }
+    th { color: var(--muted); font-weight: 600; }
+    .mono { font-family: monospace; font-variant-numeric: tabular-nums; direction: ltr; display: inline-block; }
+    .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+    .stat { background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
+    .stat-num { font-size: 22px; font-weight: 700; font-family: monospace; font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>مختبر التحليل الثابت REA (Termux المحلي)</h1>
+    <button class="btn" id="checkToolsBtn" type="button">فحص أدوات البيئة</button>
+  </header>
+
+  <main class="container">
+    <div class="notice">
+      تنبيه قانوني: هذه الأداة مخصصة حصرياً لتحليل التطبيقات والملفات التي يملكها المستخدم أو لديه إذن صريح بتحليلها.
+    </div>
+
+    <section class="panel" id="toolsPanel" style="display:none;">
+      <h2 style="margin-top:0;font-size:16px;">حالة الأدوات المثبتة على Termux</h2>
+      <div id="toolsOut" class="mono" style="white-space:pre-wrap;font-size:12px;"></div>
+    </section>
+
+    <section class="panel">
+      <h2 style="margin-top:0;font-size:16px;">رفع الملفات للتحليل (APK / XAPK / APKS / APKM / ZIP / EXE حتى 500MB+)</h2>
+      <div class="dropzone">
+        <input type="file" id="fileInput" multiple style="margin-bottom:12px;" />
+        <div>
+          <button class="btn" id="startBtn" type="button">بدء التحليل المتدفق</button>
+        </div>
+      </div>
+
+      <div id="progressArea" style="display:none;margin-top:16px;">
+        <div style="display:flex;justify-content:space-between;font-size:13px;">
+          <span id="statusLabel">جاري الرفع والمعالجة...</span>
+          <span id="pctLabel" class="mono">0%</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="pctFill"></div></div>
+        <div class="logs" id="logsBox"></div>
+      </div>
+    </section>
+
+    <section class="panel" id="resultPanel" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <h2 style="margin:0;font-size:16px;">نتائج التحليل الصادق</h2>
+        <a id="downloadZipLink" class="btn" style="text-decoration:none;">تنزيل حزمة المخرجات (ZIP)</a>
+      </div>
+      <div class="grid-4" id="summaryCards" style="margin-bottom:16px;"></div>
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="overview">الاكتمال والسلامة</button>
+        <button class="tab-btn" data-tab="splits">الحزم المقسّمة و.so</button>
+        <button class="tab-btn" data-tab="assets">الأصول والموارد</button>
+        <button class="tab-btn" data-tab="functions">دوال وشاشات التطبيق</button>
+        <button class="tab-btn" data-tab="libs">مكتبات الطرف الثالث</button>
+        <button class="tab-btn" data-tab="strings">النصوص والصلاحيات</button>
+        <button class="tab-btn" data-tab="rebuild">إعادة البناء الصادق</button>
+      </div>
+      <div id="tabBody"></div>
+    </section>
+  </main>
+
+  <script>
+    let currentResult = null;
+    let activeTab = 'overview';
+
+    document.getElementById('checkToolsBtn').addEventListener('click', async () => {
+      const panel = document.getElementById('toolsPanel');
+      const out = document.getElementById('toolsOut');
+      panel.style.display = 'block';
+      out.textContent = 'جاري الفحص...';
+      const r = await fetch('/api/tools/status');
+      const d = await r.json();
+      out.textContent = JSON.stringify(d, null, 2);
+    });
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeTab = btn.dataset.tab;
+        renderTab();
+      });
+    });
+
+    document.getElementById('startBtn').addEventListener('click', async () => {
+      const files = document.getElementById('fileInput').files;
+      if (!files.length) return;
+      const btn = document.getElementById('startBtn');
+      btn.disabled = true;
+      document.getElementById('progressArea').style.display = 'block';
+      document.getElementById('resultPanel').style.display = 'none';
+      const logsBox = document.getElementById('logsBox');
+      logsBox.innerHTML = '';
+
+      try {
+        const CHUNK_SIZE = 5 * 1024 * 1024;
+        let totalBytes = 0;
+        for (const f of files) totalBytes += f.size;
+        totalBytes = totalBytes || 1;
+        let uploaded = 0;
+
+        const initRes = await fetch('/api/uploads/init', { method: 'POST' });
+        const initData = await initRes.json();
+        const uploadId = initData.upload_id;
+
+        for (const f of files) {
+          const totalChunks = Math.max(1, Math.ceil(f.size / CHUNK_SIZE));
+          for (let i = 0; i < totalChunks; i++) {
+            const start = i * CHUNK_SIZE;
+            const end = Math.min(f.size, start + CHUNK_SIZE);
+            const slice = f.slice(start, end);
+            const qs = new URLSearchParams({ filename: f.name, chunkIndex: String(i) });
+            const cRes = await fetch('/api/uploads/' + uploadId + '/chunk?' + qs.toString(), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/octet-stream' },
+              body: slice
+            });
+            if (!cRes.ok) throw new Error('فشل رفع مقطع الملف ' + f.name);
+            uploaded += (end - start);
+            const pct = Math.min(99, Math.round((uploaded / totalBytes) * 100));
+            document.getElementById('pctLabel').textContent = pct + '%';
+            document.getElementById('pctFill').style.width = pct + '%';
+          }
+        }
+
+        const commitRes = await fetch('/api/uploads/' + uploadId + '/commit', { method: 'POST' });
+        const { job_id } = await commitRes.json();
+
+        const ev = new EventSource('/api/jobs/' + job_id + '/events');
+      ev.onmessage = async (msg) => {
+        const data = JSON.parse(msg.data);
+        if (data.type === 'log') {
+          document.getElementById('pctLabel').textContent = data.progress + '%';
+          document.getElementById('pctFill').style.width = data.progress + '%';
+          const line = document.createElement('div');
+          line.textContent = `[${data.entry.ts}] (${data.entry.progress}%) ${data.entry.message}`;
+          logsBox.appendChild(line);
+          logsBox.scrollTop = logsBox.scrollHeight;
+        } else if (data.type === 'done') {
+          ev.close();
+          btn.disabled = false;
+          document.getElementById('statusLabel').textContent = data.status === 'completed' ? 'اكتمل التحليل' : 'فشل التحليل';
+          const jr = await fetch('/api/jobs/' + job_id);
+          const job = await jr.json();
+          if (job.result) {
+            currentResult = job.result;
+            document.getElementById('downloadZipLink').href = '/api/jobs/' + job_id + '/download';
+            renderSummary();
+            renderTab();
+            document.getElementById('resultPanel').style.display = 'block';
+          }
+        }
+        };
+      } catch (err) {
+        btn.disabled = false;
+        document.getElementById('statusLabel').textContent = 'فشل الرفع أو التحليل';
+        const line = document.createElement('div');
+        line.style.color = '#f87171';
+        line.textContent = err && err.message ? err.message : String(err);
+        logsBox.appendChild(line);
+      }
+    });
+
+    function renderSummary() {
+      const c = currentResult.completeness_report.summary_counts_app_only;
+      document.getElementById('summaryCards').innerHTML = `
+        <div class="stat"><div>دوال التطبيق فقط</div><div class="stat-num">${c.app_functions}</div></div>
+        <div class="stat"><div>شاشات التطبيق</div><div class="stat-num">${c.app_screens}</div></div>
+        <div class="stat"><div>مكتبات الطرف الثالث</div><div class="stat-num">${c.third_party_library_packages}</div></div>
+        <div class="stat"><div>التحقق من الأصل</div><div class="stat-num" style="color:${currentResult.completeness_report.integrity_verified ? '#16a34a':'#dc2626'}">${currentResult.completeness_report.integrity_verified ? 'مطابق' : 'فشل'}</div></div>
+      `;
+    }
+
+    function renderTab() {
+      if (!currentResult) return;
+      const body = document.getElementById('tabBody');
+      const rep = currentResult.rea_report;
+      const comp = currentResult.completeness_report;
+      if (activeTab === 'overview') {
+        body.innerHTML = `<pre class="mono" style="white-space:pre-wrap;font-size:12px;">${JSON.stringify(comp, null, 2)}</pre>`;
+      } else if (activeTab === 'splits') {
+        body.innerHTML = `
+          <h4>الحزم المقسّمة (${rep.splits_processed.length})</h4>
+          <table><tr><th>الملف</th><th>الدور</th><th>الملفات</th></tr>
+          ${rep.splits_processed.map(s => `<tr><td class="mono">${s.apk_name}</td><td>${s.role}</td><td class="mono">${s.file_count}</td></tr>`).join('')}
+          </table>
+          <h4>المكتبات الأصلية .so (${rep.native_libraries_so.length})</h4>
+          <table><tr><th>المسار</th><th>المعمارية</th></tr>
+          ${rep.native_libraries_so.map(n => `<tr><td class="mono" style="word-break:break-all">${n.path}</td><td class="mono">${n.abi}</td></tr>`).join('')}
+          </table>`;
+      } else if (activeTab === 'assets') {
+        const assets = rep.assets_index || [];
+        body.innerHTML = `
+          <h4>الأصول والموارد والترجمات (${assets.length})</h4>
+          <table><tr><th>المسار</th><th>النوع</th><th>الحجم</th></tr>
+          ${assets.slice(0, 200).map(a => `<tr><td class="mono" style="word-break:break-all">${a.path}</td><td class="mono">${a.kind}</td><td class="mono">${a.size_bytes}</td></tr>`).join('')}
+          </table>`;
+      } else if (activeTab === 'functions') {
+        const funcs = currentResult.functions_map.app_functions.slice(0, 150);
+        const screens = currentResult.screens_index;
+        body.innerHTML = `
+          <h4>الشاشات (${screens.length})</h4>
+          <table><tr><th>الشاشة</th><th>الدليل</th></tr>
+          ${screens.map(s => `<tr><td class="mono">${s.screen_name}</td><td class="mono">${s.evidence}</td></tr>`).join('')}
+          </table>
+          <h4>دوال التطبيق فقط (${currentResult.functions_map.app_functions.length})</h4>
+          <table><tr><th>الكلاس</th><th>الدالة</th><th>الدليل</th></tr>
+          ${funcs.map(f => `<tr><td class="mono">${f.class_name}</td><td class="mono">${f.method_name}</td><td class="mono">${f.evidence}</td></tr>`).join('')}
+          </table>`;
+      } else if (activeTab === 'libs') {
+        body.innerHTML = `<table><tr><th>حزمة المكتبة</th><th>عدد الكلاسات</th></tr>
+          ${rep.third_party_libraries.map(l => `<tr><td class="mono">${l.package}</td><td class="mono">${l.class_count}</td></tr>`).join('')}
+        </table>`;
+      } else if (activeTab === 'strings') {
+        body.innerHTML = `
+          <h4>الصلاحيات (${currentResult.permissions.length})</h4>
+          <table><tr><th>الصلاحية</th><th>الدليل</th></tr>
+          ${currentResult.permissions.map(p => `<tr><td class="mono">${p.name}</td><td class="mono">${p.evidence}</td></tr>`).join('')}
+          </table>
+          <h4>نصوص التطبيق (${currentResult.strings_index.length})</h4>
+          <table><tr><th>النص</th><th>الدليل</th></tr>
+          ${currentResult.strings_index.slice(0, 150).map(s => `<tr><td>${s.value}</td><td class="mono">${s.evidence}</td></tr>`).join('')}
+          </table>`;
+      } else if (activeTab === 'rebuild') {
+        body.innerHTML = `<pre style="white-space:pre-wrap;font-size:13px;">${currentResult.readme_rebuilt}</pre>`;
+      }
+    }
+  </script>
+</body>
+</html>
